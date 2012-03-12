@@ -25,6 +25,18 @@ AddOption('--c99',
           action='store_true',
           help='Compile with c99 (recommended for gcc)')
 
+AddOption('--m32',
+          dest='use_m32',
+          default=False,
+          action='store_true',
+          help='Compile with m32 (recommended, actually required, for 32 bit applications on 64 bit machines)')
+
+AddOption('--addrinfo',
+          dest='use_addrinfo',
+          default=False,
+          action='store_true',
+          help='Compile with addrinfo to make use of internet address info when connecting')
+
 AddOption('--d',
           dest='optimize',
           default=True,
@@ -45,7 +57,12 @@ AddOption('--use-platform',
 
 import os, sys
 
-env = Environment( ENV=os.environ )
+if GetOption('use_m32'):
+    msvs_arch = "x86"
+else:
+    msvs_arch = "amd64"
+print msvs_arch
+env = Environment(ENV=os.environ, MSVS_ARCH=msvs_arch, TARGET_ARCH=msvs_arch)
 
 #  ---- Docs ----
 def build_docs(env, target, source):
@@ -61,7 +78,7 @@ env.AlwaysBuild("docs")
 # ---- Platforms ----
 PLATFORM_TEST_DIR = None
 if "LINUX" == GetOption('compile_platform'):
-    env.Append( CPPFLAGS=" -D_MONGO_USE_LINUX_SYSTEM" )
+    env.Append( CPPFLAGS=" -D_MONGO_USE_LINUX_SYSTEM -D_POSIX_SOURCE" )
     NET_LIB = "src/platform/linux/net.c"
     PLATFORM_TEST_DIR = "test/platform/linux/"
     PLATFORM_TESTS = [ "timeouts" ]
@@ -114,11 +131,20 @@ if conf.CheckLib('json'):
     have_libjson = True
 env = conf.Finish()
 
+if GetOption('use_m32'):
+    if 'win32' != os.sys.platform:
+        env.Append( CPPFLAGS=" -m32" )
+        env.Append( SHLINKFLAGS=" -m32" )
+
+if GetOption('use_addrinfo'):
+    env.Append( CPPFLAGS=" -D_MONGO_USE_GETADDRINFO" )
+
 if sys.byteorder == 'big':
     env.Append( CPPDEFINES="MONGO_BIG_ENDIAN" )
 
 env.Append( CPPPATH=["src/"] )
 
+env.Append( CPPFLAGS=" -DMONGO_DLL_BUILD" )
 coreFiles = ["src/md5.c" ]
 mFiles = [ "src/mongo.c", NET_LIB, "src/gridfs.c"]
 bFiles = [ "src/bson.c", "src/numbers.c", "src/encoding.c"]
@@ -128,12 +154,19 @@ m = env.Library( "mongoc" ,  mLibFiles )
 b = env.Library( "bson" , bLibFiles  )
 env.Default( env.Alias( "lib" , [ m[0] , b[0] ] ) )
 
-if os.sys.platform == "linux2":
-    env.Append( SHLINKFLAGS="-shared -Wl,-soname,libmongoc.so." + VERSION )
-    env.Append( SHLINKFLAGS = "-shared -Wl,-soname,libbson.so." + VERSION )
+# build the objects explicitly so that shared targets use the same
+# environment (otherwise scons complains)
+mSharedObjs = env.SharedObject(mLibFiles)
+bSharedObjs = env.SharedObject(bLibFiles)
 
-dynm = env.SharedLibrary( "mongoc" , mLibFiles )
-dynb = env.SharedLibrary( "bson" , bLibFiles )
+bsonEnv = env.Clone()
+if os.sys.platform == "linux2":
+    env.Append( SHLINKFLAGS = "-shared -Wl,-soname,libmongoc.so." + VERSION )
+    bsonEnv.Append( SHLINKFLAGS = "-shared -Wl,-soname,libbson.so." + VERSION )
+
+dynm = env.SharedLibrary( "mongoc" , mSharedObjs )
+dynb = bsonEnv.SharedLibrary( "bson" , bSharedObjs )
+
 env.Default( env.Alias( "sharedlib" , [ dynm[0] , dynb[0] ] ) )
 
 
@@ -150,23 +183,23 @@ benchmarkEnv.Program( "benchmark" ,  [ "test/benchmark.c"] )
 testEnv = benchmarkEnv.Clone()
 testCoreFiles = [ ]
 
-def run_tests( root, tests ):
+def run_tests( root, tests, env, alias ):
     for name in tests:
         filename = "%s/%s.c" % (root, name)
         exe = "test_" + name
-        test = testEnv.Program( exe , testCoreFiles + [filename]  )
-        test_alias = testEnv.Alias('test', [test], test[0].abspath + ' 2> ' + os.path.devnull)
+        test = env.Program( exe , testCoreFiles + [filename]  )
+        test_alias = env.Alias(alias, [test], test[0].abspath + ' 2> ' + os.path.devnull)
         AlwaysBuild(test_alias)
 
 tests = Split("sizes resize endian_swap bson bson_subobject simple update errors "
-"count_delete auth gridfs validate examples helpers oid functions cursors replica_set")
+"count_delete auth gridfs validate examples helpers oid functions cursors")
 
 # Run standard tests
-run_tests("test", tests)
+run_tests("test", tests, testEnv, "test")
 
 # Run platform tests
 if not PLATFORM_TEST_DIR is None:
-    run_tests( PLATFORM_TEST_DIR, PLATFORM_TESTS )
+    run_tests( PLATFORM_TEST_DIR, PLATFORM_TESTS, testEnv, "test" )
 
 if have_libjson:
     tests.append('json')
@@ -176,3 +209,9 @@ if have_libjson:
 test = testEnv.Program( 'test_cpp' , testCoreFiles + ['test/cpptest.cpp']  )
 test_alias = testEnv.Alias('test', [test], test[0].abspath + ' 2> '+ os.path.devnull)
 AlwaysBuild(test_alias)
+
+# Run replica set test only
+repl_testEnv = benchmarkEnv.Clone()
+repl_tests = ["replica_set"]
+run_tests("test", repl_tests, repl_testEnv, "repl_test")
+

@@ -25,8 +25,6 @@ void insert_sample_data( mongo *conn, int n ) {
     bson b;
     int i;
 
-    create_capped_collection( conn );
-
     for( i=0; i<n; i++ ) {
         bson_init( &b );
         bson_append_int( &b, "a", i );
@@ -47,6 +45,8 @@ int test_multiple_getmore( mongo *conn ) {
     bson b;
     int count;
 
+    remove_sample_data( conn );
+    create_capped_collection( conn );
     insert_sample_data( conn, 10000 );
 
     cursor = mongo_find( conn, "test.cursors", bson_empty( &b ), bson_empty( &b ), 0, 0, 0 );
@@ -70,6 +70,8 @@ int test_tailable( mongo *conn ) {
     bson b, e;
     int count;
 
+    remove_sample_data( conn );
+    create_capped_collection( conn );
     insert_sample_data( conn, 10000 );
 
     bson_init( &b );
@@ -114,6 +116,7 @@ int test_builder_api( mongo *conn ) {
     int count = 0;
     mongo_cursor cursor[1];
 
+    remove_sample_data( conn );
     insert_sample_data( conn, 10000 );
     mongo_cursor_init( cursor, conn, "test.cursors" );
 
@@ -136,6 +139,47 @@ int test_builder_api( mongo *conn ) {
     return 0;
 }
 
+int test_bad_query( mongo *conn ) {
+    mongo_cursor cursor[1];
+    bson b[1];
+
+    bson_init( b );
+    bson_append_start_object( b, "foo" );
+        bson_append_int( b, "$bad", 1 );
+    bson_append_finish_object( b );
+    bson_finish( b );
+
+    mongo_cursor_init( cursor, conn, "test.cursors" );
+    mongo_cursor_set_query( cursor, b );
+
+    ASSERT( mongo_cursor_next( cursor ) == MONGO_ERROR );
+    ASSERT( cursor->err == MONGO_CURSOR_QUERY_FAIL );
+    ASSERT( cursor->conn->lasterrcode == 10068 );
+    ASSERT( strlen( cursor->conn->lasterrstr ) > 0 );
+
+    mongo_cursor_destroy( cursor );
+    bson_destroy( b );
+    return 0;
+}
+
+int test_copy_cursor_data( mongo *conn ) {
+    mongo_cursor cursor[1];
+    bson b[1];
+
+    insert_sample_data( conn, 10 );
+    mongo_cursor_init( cursor, conn, "test.cursors" );
+
+    mongo_cursor_next( cursor );
+
+    ASSERT( bson_copy( b, mongo_cursor_bson( cursor ) ) == MONGO_OK );
+
+    ASSERT( memcmp( (void *)b->data, (void *)(cursor->current).data,
+                bson_size( &cursor->current ) ) == 0 );
+
+    mongo_cursor_destroy( cursor );
+    bson_destroy( b );
+}
+
 int main() {
 
     mongo conn[1];
@@ -145,10 +189,11 @@ int main() {
         exit( 1 );
     }
 
-    remove_sample_data( conn );
     test_multiple_getmore( conn );
     test_tailable( conn );
     test_builder_api( conn );
+    test_bad_query( conn );
+    test_copy_cursor_data( conn );
 
     mongo_destroy( conn );
     return 0;
