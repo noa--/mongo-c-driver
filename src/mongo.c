@@ -548,7 +548,7 @@ MONGO_EXPORT void mongo_destroy( mongo *conn ) {
 }
 
 /* Determine whether this BSON object is valid for the given operation.  */
-static int mongo_bson_valid( mongo *conn, bson *bson, int write ) {
+static int mongo_bson_valid( mongo *conn, const bson *bson, int write ) {
     if( ! bson->finished ) {
         conn->err = MONGO_BSON_NOT_FINISHED;
         return MONGO_ERROR;
@@ -595,7 +595,7 @@ static int mongo_cursor_bson_valid( mongo_cursor *cursor, bson *bson ) {
 /* MongoDB CRUD API */
 
 MONGO_EXPORT int mongo_insert_batch( mongo *conn, const char *ns,
-                        bson **bsons, int count ) {
+                        const bson **bsons, int count ) {
 
     int size =  16 + 4 + strlen( ns ) + 1;
     int i;
@@ -621,7 +621,7 @@ MONGO_EXPORT int mongo_insert_batch( mongo *conn, const char *ns,
     return mongo_message_send( conn, mm );
 }
 
-MONGO_EXPORT int mongo_insert( mongo *conn , const char *ns , bson *bson ) {
+MONGO_EXPORT int mongo_insert( mongo *conn , const char *ns , const bson *bson ) {
 
     char *data;
     mongo_message *mm;

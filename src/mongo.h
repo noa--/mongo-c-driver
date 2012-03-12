@@ -316,7 +316,7 @@ MONGO_EXPORT void mongo_destroy( mongo *conn );
  *     field is MONGO_BSON_INVALID, check the err field
  *     on the bson struct for the reason.
  */
-MONGO_EXPORT int mongo_insert( mongo *conn, const char *ns, bson *data );
+MONGO_EXPORT int mongo_insert( mongo *conn, const char *ns, const bson *data );
 
 /**
  * Insert a batch of BSON documents into a MongoDB server. This function
@@ -331,7 +331,7 @@ MONGO_EXPORT int mongo_insert( mongo *conn, const char *ns, bson *data );
  *
  */
 MONGO_EXPORT int mongo_insert_batch( mongo *conn , const char *ns ,
-                        bson **data , int num );
+                        const bson **data , int num );
 
 /**
  * Update a document in a MongoDB server.
