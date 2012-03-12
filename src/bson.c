@@ -97,7 +97,7 @@ int bson_size( const bson *b ) {
     return i;
 }
 
-const char *bson_data( bson *b ) {
+const char *bson_data( const bson *b ) {
     return (const char *)b->data;
 }
 
@@ -203,7 +203,7 @@ time_t bson_oid_generated_time( bson_oid_t *oid ) {
     return out;
 }
 
-void bson_print( bson *b ) {
+void bson_print( const bson *b ) {
     bson_print_raw( b->data , 0 );
 }
 
