@@ -1,6 +1,6 @@
 # -*- mode: python; -*-
 
-VERSION = "0.4"
+VERSION = "0.5"
 
 # --- options ----
 AddOption('--test-server',
@@ -79,18 +79,23 @@ env.AlwaysBuild("docs")
 PLATFORM_TEST_DIR = None
 if "LINUX" == GetOption('compile_platform'):
     env.Append( CPPFLAGS=" -D_MONGO_USE_LINUX_SYSTEM -D_POSIX_SOURCE" )
-    NET_LIB = "src/platform/linux/net.c"
+    NET_LIB = "src/env_posix.c"
     PLATFORM_TEST_DIR = "test/platform/linux/"
     PLATFORM_TESTS = [ "timeouts" ]
 elif "CUSTOM" == GetOption('compile_platform'):
     env.Append( CPPFLAGS=" -D_MONGO_USE_CUSTOM_SYSTEM" )
-    NET_LIB = "src/platform/custom/net.c"
+    NET_LIB = "src/env_default.c"
 else:
-    NET_LIB = "src/net.c"
+    NET_LIB = "src/env_default.c"
 
 # ---- Libraries ----
+
+
 if os.sys.platform in ["darwin", "linux2"]:
-    env.Append( CPPFLAGS=" -pedantic -Wall -ggdb -DMONGO_HAVE_STDINT" )
+    if os.sys.platform in ["darwin"]:
+        env.Append( CPPFLAGS=" -pedantic -Wall -ggdb -DMONGO_HAVE_STDINT -DMONGO_OSX_" )
+    else:
+        env.Append( CPPFLAGS=" -pedantic -Wall -ggdb -DMONGO_HAVE_STDINT" )
     env.Append( CPPPATH=["/opt/local/include/"] )
     env.Append( LIBPATH=["/opt/local/lib/"] )
 
@@ -169,8 +174,6 @@ dynb = bsonEnv.SharedLibrary( "bson" , bSharedObjs )
 
 env.Default( env.Alias( "sharedlib" , [ dynm[0] , dynb[0] ] ) )
 
-
-
 # ---- Benchmarking ----
 benchmarkEnv = env.Clone()
 benchmarkEnv.Append( CPPDEFINES=[('TEST_SERVER', r'\"%s\"'%GetOption('test_server')),
@@ -185,7 +188,7 @@ testCoreFiles = [ ]
 
 def run_tests( root, tests, env, alias ):
     for name in tests:
-        filename = "%s/%s.c" % (root, name)
+        filename = "%s/%s_test.c" % (root, name)
         exe = "test_" + name
         test = env.Program( exe , testCoreFiles + [filename]  )
         test_alias = env.Alias(alias, [test], test[0].abspath + ' 2> ' + os.path.devnull)
@@ -214,4 +217,3 @@ AlwaysBuild(test_alias)
 repl_testEnv = benchmarkEnv.Clone()
 repl_tests = ["replica_set"]
 run_tests("test", repl_tests, repl_testEnv, "repl_test")
-
