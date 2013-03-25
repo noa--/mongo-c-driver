@@ -26,6 +26,9 @@
 #define gridfs_test_unlink unlink
 #endif
 
+#define GFS_INIT \
+    gridfs_init( conn, "test", "fs", gfs )
+
 void fill_buffer_randomly( char *data, int64_t length ) {
     int64_t i;
     int random;
@@ -140,9 +143,7 @@ void test_basic( void ) {
 
     INIT_SOCKETS_FOR_WINDOWS;
     CONN_CLIENT_TEST;
-
-
-    gridfs_init( conn, "test", "fs", gfs );
+    GFS_INIT;
 
     fill_buffer_randomly( data_before, UPPER );
     for ( i = LOWER; i <= UPPER; i += DELTA ) {
@@ -196,7 +197,7 @@ void test_streaming( void ) {
     fill_buffer_randomly( small, ( int64_t )LOWER );
     fill_buffer_randomly( buf, ( int64_t )LARGE );
 
-    gridfs_init( conn, "test", "fs", gfs );
+    GFS_INIT;
     gridfile_init( gfs, NULL, gfile );
     gridfile_writer_init( gfile, gfs, "medium", "text/html", GRIDFILE_DEFAULT );
 
@@ -206,13 +207,12 @@ void test_streaming( void ) {
     test_gridfile( gfs, medium, 2 * MEDIUM, "medium", "text/html" );
     gridfs_destroy( gfs );
 
-    gridfs_init( conn, "test", "fs", gfs );
-
+    GFS_INIT;
     gridfs_store_buffer( gfs, small, LOWER, "small", "text/html", GRIDFILE_DEFAULT );
     test_gridfile( gfs, small, LOWER, "small", "text/html" );
     gridfs_destroy( gfs );
 
-    gridfs_init( conn, "test", "fs", gfs );
+    GFS_INIT;
     gridfs_remove_filename( gfs, "large" );
     gridfile_writer_init( gfile, gfs, "large", "text/html", GRIDFILE_DEFAULT );
     for( n=0; n < ( LARGE / 1024 ); n++ ) {
@@ -243,9 +243,7 @@ void test_random_write() {
     INIT_SOCKETS_FOR_WINDOWS;
     CONN_CLIENT_TEST;
 
-
-    gridfs_init( conn, "test", "fs", gfs );
-
+    GFS_INIT;
     fill_buffer_randomly( data_before, UPPER );
     fill_buffer_randomly( random_data, UPPER );
     for ( i = LOWER; i <= UPPER; i += DELTA ) {
@@ -325,7 +323,7 @@ void test_random_write2( void ) {
 
     bson_init_empty( &meta );
 
-    gridfs_init( conn, "test", "fs", gfs );
+    GFS_INIT;
 
     /* This portion of the test we will write zeroes by using new API gridfile_set_size
        function gridfile_expand tested implicitally by using gridfile_set_size making file larger */
@@ -387,8 +385,7 @@ void test_large( void ) {
     mongo_write_concern_finish(&wc);
     mongo_set_write_concern(conn, &wc);
 
-
-    gridfs_init( conn, "test", "fs", gfs );
+    GFS_INIT;
 
     fd = fopen( "bigfile", "r" );
     if( fd ) {
