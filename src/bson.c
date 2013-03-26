@@ -70,11 +70,14 @@ MONGO_EXPORT void bson_dealloc( bson* b ) {
     bson_free( b );
 }
 
-/* When passed a char * of a BSON data block, returns its reported size */
-static int bson_finished_data_size( const char *data ) {
+int bson_finished_data_size( const char *data ) {
     int i;
     bson_little_endian32( &i, data );
     return i;
+}
+
+bson_bool_t bson_finished_data_check_size( const char *data, int length ) {
+    return length == bson_finished_data_size( data );
 }
 
 int bson_init_finished_data( bson *b, char *data, bson_bool_t ownsData ) {
@@ -111,11 +114,10 @@ MONGO_EXPORT int bson_copy( bson *out, const bson *in ) {
 }
 
 MONGO_EXPORT int bson_size( const bson *b ) {
-    int i;
     if ( ! b || ! b->data )
         return 0;
-    bson_little_endian32( &i, b->data );
-    return i;
+    else
+        return bson_finished_data_size( b->data );
 }
 
 static size_t _bson_position( const bson *b ) {

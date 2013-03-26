@@ -187,6 +187,19 @@ MONGO_EXPORT bson* bson_alloc( void );
 MONGO_EXPORT void bson_dealloc( bson* b );
 
 /**
+ * Return a BSON data block's reported size, which is stored in the
+ * first four bytes of the block.
+ */
+int bson_finished_data_size( const char *data );
+
+/**
+ * Perform a basic check on the validity of a BSON data block, by
+ * comparing the block's reported data size, which is stored in the
+ * block, with the size of the buffer you provide.
+ */
+bson_bool_t bson_finished_data_check_size( const char *data, int length );
+
+/**
  * Initialize a BSON object for reading and set its data
  * pointer to the provided char*.
  *

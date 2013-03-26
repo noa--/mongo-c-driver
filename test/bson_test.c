@@ -330,12 +330,38 @@ int test_bson_deep_nesting( void ) {
     return 0;
 }
 
+int test_bson_check_size( void ) {
+    bson b[1];
+    bson_iterator iter[1];
+    int size;
+
+    bson_init( b );
+
+    bson_append_bool( b, "b", 1 );
+    bson_append_date( b, "date", 0x0102030405060708 );
+    bson_append_null( b, "n" );
+    bson_append_regex( b, "r", "^asdf", "imx" );
+    bson_append_code( b, "c", "function(){}" );
+    bson_append_code_n( b, "c_n", "function(){}garbage", 12 );
+    bson_append_symbol( b, "symbol", "symbol" );
+    bson_append_symbol_n( b, "symbol_n", "symbol and garbage", 6 );
+    bson_finish( b );
+
+    size = bson_size( b );
+    ASSERT( bson_finished_data_check_size( bson_data( b ), size ) );
+    ASSERT( ! bson_finished_data_check_size( bson_data( b ), size - 1 ) );
+
+    bson_destroy( b );
+    return 0;
+}
+
 int main() {
 
   test_bson_generic();
   test_bson_iterator();
   test_bson_size();
   test_bson_deep_nesting();
+  test_bson_check_size();
 
   return 0;
 }
